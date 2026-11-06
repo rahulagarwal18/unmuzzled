@@ -7,6 +7,10 @@ One command opens a clean chat interface in your browser, where you pick an open
 npx unmuzzled
 ```
 
+![Unmuzzled streaming a reply from a local 9B model](docs/demo.gif)
+
+<sub>A real run on a laptop (Intel Iris Xe). Generation is sped up 8×; the real speed is shown at the end.</sub>
+
 ![Unmuzzled chat interface, dark theme](docs/screenshot-dark.png)
 
 <details>
