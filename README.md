@@ -24,6 +24,8 @@ npx unmuzzled
 ![Node 20+](https://img.shields.io/badge/node-%3E%3D20-2d6a5a.svg)
 ![Runs offline](https://img.shields.io/badge/runs-offline-2d6a5a.svg)
 
+📝 [Read the write-up on dev.to](https://dev.to/rahul_agarwal18/i-built-a-private-offline-ai-chat-you-can-run-with-one-command-npx-unmuzzled-1bl) · 💬 [Discuss on LinkedIn](https://www.linkedin.com/posts/rahul-agarwal-ai_opensource-ai-llm-ugcPost-7524464964498165760-hAvi/)
+
 ---
 
 ## Why
