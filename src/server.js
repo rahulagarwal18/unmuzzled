@@ -87,7 +87,7 @@ function isAllowedHost(hostHeader, bindHost) {
   return name === "localhost" || name === "127.0.0.1" || name === "::1" || name === bindHost;
 }
 
-export function startServer({ port, host, state }) {
+export function startServer({ port, host, state, actions = {} }) {
   const server = http.createServer(async (req, res) => {
     if (!isAllowedHost(req.headers.host, host)) return send(res, 403, "Forbidden host");
     const { pathname } = new URL(req.url, "http://localhost");
@@ -97,7 +97,21 @@ export function startServer({ port, host, state }) {
         status: state.status,
         error: state.error ?? null,
         model: state.engine?.info ?? state.pendingInfo ?? null,
+        download: state.download ?? null,
+        catalog: state.status === "setup" || state.status === "downloading" ? state.catalog : undefined,
+        setup: state.status === "setup" || state.status === "downloading" ? state.setup : undefined,
       });
+    }
+
+    if ((pathname === "/api/setup/download" || pathname === "/api/setup/pause") && req.method === "POST") {
+      // Same JSON requirement as /api/chat, so other websites can't trigger a 5 GB download.
+      if (!req.headers["content-type"]?.startsWith("application/json")) {
+        return send(res, 415, { error: "Expected application/json." });
+      }
+      const action = pathname.endsWith("download") ? actions.download : actions.pause;
+      if (!action) return send(res, 404, { error: "Not available." });
+      action();
+      return send(res, 202, { ok: true });
     }
 
     if (pathname === "/api/chat" && req.method === "POST") {

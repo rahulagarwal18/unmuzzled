@@ -1,7 +1,7 @@
 # Unmuzzled
 
 **Private, offline AI chat that runs entirely on your own computer.**
-One command downloads an open model, starts it locally and opens a clean chat interface in your browser. No account, no API key, no cloud.
+One command opens a clean chat interface in your browser, where you pick an open model to download once. It then runs entirely on your machine. No account, no API key, no cloud.
 
 ```bash
 npx unmuzzled
@@ -39,7 +39,7 @@ Cloud assistants see every prompt you send, enforce their own content rules, and
 
 ## Default model
 
-Unmuzzled downloads this model on first run unless you pass `--model`:
+On first run, Unmuzzled opens a setup screen offering this model (with its size and your machine's RAM and free disk). Nothing downloads until you click **Download**, and you can pause and resume. Pass `--model` to use your own file instead:
 
 | | |
 |---|---|
@@ -73,7 +73,7 @@ Speed depends entirely on your hardware. Measured on a mid-range laptop (Intel i
 ## Usage
 
 ```bash
-npx unmuzzled                          # download the default model (first run) and start
+npx unmuzzled                          # open the interface; first run offers to download the default model
 npx unmuzzled --model ./my-model.gguf  # use a GGUF file you already have
 npx unmuzzled --model https://huggingface.co/<user>/<repo>/resolve/main/<file>.gguf
 npx unmuzzled --ctx 4096 --port 5000
@@ -81,7 +81,7 @@ npx unmuzzled --ctx 4096 --port 5000
 
 | Option | Default | |
 |---|---|---|
-| `-m, --model` | default model | Path to a `.gguf` file, or a URL to download one from |
+| `-m, --model` | — | Path to a `.gguf` file, or a URL to download one from |
 | `-p, --port` | `4317` | Port for the web interface |
 | `--host` | `127.0.0.1` | Address to bind. See [Security](#security) before changing this |
 | `--ctx` | `8192` | Maximum context size in tokens |
@@ -89,7 +89,7 @@ npx unmuzzled --ctx 4096 --port 5000
 | `--no-open` | | Don't open the browser automatically |
 | `--mock` | | Run the interface with a fake model, for development |
 
-Downloaded models are stored in `~/.unmuzzled/models`.
+Downloaded models are stored in `~/.unmuzzled/models`. Once the default model is there, Unmuzzled skips setup and loads it straight away.
 
 ### Keyboard shortcuts
 

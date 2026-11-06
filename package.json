@@ -1,6 +1,6 @@
 {
   "name": "unmuzzled",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Private, offline AI chat for local GGUF models. One command to download, run and talk.",
   "author": "Rahul Agarwal (https://github.com/rahulagarwal18)",
   "license": "MIT",

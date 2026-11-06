@@ -122,7 +122,15 @@ const isNarrow = () => matchMedia("(max-width: 900px)").matches;
 
 /* ---------- Thread ---------- */
 
+const inSetup = () => server.status === "setup" || server.status === "downloading";
+
 function renderThread() {
+  if (inSetup()) {
+    els.title.textContent = "";
+    document.title = "Set up · Unmuzzled";
+    return renderSetup();
+  }
+
   const chat = activeChat();
   els.title.textContent = chat ? chat.title : "";
   document.title = chat ? `${chat.title} · Unmuzzled` : "Unmuzzled";
@@ -603,7 +611,95 @@ function updateComposer() {
   els.input.placeholder =
     server.status === "ready" ? (activeChat() ? "Reply" : "Message the model")
     : server.status === "loading" ? "The model is loading…"
+    : server.status === "setup" ? "Download a model to start chatting"
+    : server.status === "downloading" ? "Downloading the model…"
     : "The model isn't available";
+}
+
+/* ---------- First-run setup ---------- */
+
+const gb = (n) => `${(n / 1e9).toFixed(n >= 1e10 ? 0 : 2)} GB`;
+
+function formatEta(seconds) {
+  if (!seconds || !isFinite(seconds)) return "";
+  if (seconds < 90) return `${Math.round(seconds)}s left`;
+  if (seconds < 5400) return `${Math.round(seconds / 60)} min left`;
+  return `${(seconds / 3600).toFixed(1)} h left`;
+}
+
+function renderSetup() {
+  const entry = server.catalog?.[0];
+  if (!entry) return;
+  let root = $(".setup", els.messages);
+
+  if (!root) {
+    els.messages.replaceChildren($("#tpl-setup").content.cloneNode(true));
+    root = $(".setup", els.messages);
+    const machine = server.setup?.machine ?? {};
+    $(".model-card-name", root).textContent = entry.name;
+    $(".model-card-variant", root).textContent = entry.variant;
+    $(".model-card-desc", root).textContent = entry.description;
+    $(".model-card-source", root).href = entry.source;
+
+    const ramOk = machine.totalMemory ? machine.totalMemory >= entry.memoryBytes * 1.5 : null;
+    const diskOk = machine.freeDisk != null ? machine.freeDisk >= entry.sizeBytes * 1.05 : null;
+    // RAM is marketed in binary units (a "16 GB" laptop reports ~17.1e9 bytes).
+    const ramGb = (n) => `${Math.round(n / 2 ** 30)} GB`;
+    const rows = [
+      ["Download", gb(entry.sizeBytes)],
+      ["Memory needed", `~${Math.round(entry.memoryBytes / 1e9)} GB`],
+      ["This computer", machine.totalMemory ? `${ramGb(machine.totalMemory)} RAM` : "—", ramOk],
+      ["Free disk", machine.freeDisk != null ? gb(machine.freeDisk) : "—", diskOk],
+      ["Licence", entry.license],
+    ];
+    $(".model-card-specs", root).innerHTML = rows
+      .map(([k, v, ok]) => `<dt>${k}</dt><dd${ok === false ? ' class="is-bad"' : ""}>${escapeHtml(v)}</dd>`)
+      .join("");
+    $(".setup-path", root).textContent = machine.modelsDir ?? "";
+  }
+
+  const downloading = server.status === "downloading";
+  const d = server.download;
+  const btn = $(".setup-btn", root);
+  const label = $(".setup-btn-label", root);
+  const icon = $(".setup-btn use", root);
+
+  if (downloading) {
+    btn.dataset.action = "setup-pause";
+    btn.classList.remove("btn-primary");
+    label.textContent = d?.pausing ? "Pausing…" : "Pause";
+    icon.setAttribute("href", "#i-pause");
+  } else {
+    btn.dataset.action = "setup-download";
+    btn.classList.add("btn-primary");
+    label.textContent = server.setup?.resumable ? "Resume download" : `Download · ${gb(entry.sizeBytes)}`;
+    icon.setAttribute("href", "#i-download");
+  }
+  btn.disabled = !!d?.pausing;
+
+  const progress = $(".setup-progress", root);
+  progress.hidden = !downloading;
+  if (downloading && d) {
+    const pct = d.total ? (d.downloaded / d.total) * 100 : 0;
+    $(".setup-fill", root).style.width = `${Math.max(0.5, pct)}%`;
+    $(".setup-amount", root).textContent = `${gb(d.downloaded)} of ${gb(d.total)} · ${pct.toFixed(0)}%`;
+    $(".setup-speed", root).textContent = d.pausing ? "Pausing…" : d.speed
+      ?[`${(d.speed / 1e6).toFixed(1)} MB/s`, formatEta((d.total - d.downloaded) / d.speed)].filter(Boolean).join(" · ")
+      : "Connecting…";
+  }
+
+  const err = $(".setup-error", root);
+  err.hidden = !server.error;
+  err.textContent = server.error ?? "";
+}
+
+async function setupAction(action, btn) {
+  btn.disabled = true;
+  try {
+    await fetch(`/api/setup/${action}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+  } catch {}
+  clearTimeout(pollTimer);
+  setTimeout(pollStatus, 300);
 }
 
 els.input.addEventListener("input", autosize);
@@ -683,7 +779,10 @@ function initSettings() {
 
 function renderSpec() {
   const m = server.model;
-  const statusText = { loading: "Loading", ready: "Ready", error: "Failed to load", offline: "Server not reachable" }[server.status];
+  const statusText = {
+    loading: "Loading", ready: "Ready", error: "Failed to load", offline: "Server not reachable",
+    setup: "Not downloaded", downloading: "Downloading",
+  }[server.status];
   const rows = [["Status", statusText]];
   if (m) {
     rows.push(
@@ -761,38 +860,50 @@ function toast(message, actionLabel, action) {
 
 /* ---------- Server status ---------- */
 
+let pollTimer;
 async function pollStatus() {
   let next = 10_000;
   try {
     const res = await fetch("/api/status", { cache: "no-store" });
     const data = await res.json();
-    server = { status: data.status, model: data.model, error: data.error };
+    server = {
+      status: data.status, model: data.model, error: data.error,
+      download: data.download, catalog: data.catalog, setup: data.setup,
+    };
     if (data.status === "loading") next = 1500;
+    if (data.status === "downloading") next = 1000;
+    if (data.status === "setup") next = 4000;
   } catch {
     server = { ...server, status: "offline" };
     next = 3000;
   }
   renderStatus();
-  setTimeout(pollStatus, next);
+  pollTimer = setTimeout(pollStatus, next);
 }
 
 let lastStatusKey = "";
+let lastStatus = "";
 function renderStatus() {
   const key = JSON.stringify(server);
   if (key === lastStatusKey) return;
   lastStatusKey = key;
+  const leftSetup = (lastStatus === "setup" || lastStatus === "downloading") && !inSetup();
+  lastStatus = server.status;
 
   const m = server.model;
-  els.dot.dataset.state = server.status;
-  els.chipName.textContent = m?.name ?? (server.status === "offline" ? "Server offline" : "Connecting…");
+  const d = server.download;
+  els.dot.dataset.state = server.status === "downloading" ? "loading" : server.status;
+  els.chipName.textContent = m?.name ?? server.catalog?.[0]?.name ?? (server.status === "offline" ? "Server offline" : "Connecting…");
   els.chipMeta.textContent =
     server.status === "loading" ? "loading model…"
+    : server.status === "setup" ? "not downloaded yet"
+    : server.status === "downloading" ? `downloading ${d?.total ? Math.floor((d.downloaded / d.total) * 100) : 0}%`
     : server.status === "error" ? "failed to load"
     : server.status === "offline" ? "start unmuzzled in a terminal"
     : [m?.quant, m?.backend && backendName(m.backend), m?.contextSize && `${Math.round(m.contextSize / 1024)}K ctx`]
         .filter(Boolean).join(" · ");
 
-  if (!activeChat()) renderThread();
+  if (!activeChat() || inSetup() || leftSetup) renderThread();
   if (els.app.dataset.drawer === "open") renderSpec();
   updateComposer();
 }
@@ -809,6 +920,8 @@ document.addEventListener("click", (e) => {
     case "jump": scrollToBottom(true); break;
     case "export": exportChats(); break;
     case "clear-all": clearAll(e.target.closest("[data-action]")); break;
+    case "setup-download": setupAction("download", e.target.closest("[data-action]")); break;
+    case "setup-pause": setupAction("pause", e.target.closest("[data-action]")); break;
   }
 });
 

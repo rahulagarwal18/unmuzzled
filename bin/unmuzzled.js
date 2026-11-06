@@ -1,16 +1,13 @@
 #!/usr/bin/env node
 import { parseArgs } from "node:util";
 import { spawn } from "node:child_process";
-import os from "node:os";
 import path from "node:path";
 import fs from "node:fs";
 import { startServer } from "../src/server.js";
 import { createEngine, createMockEngine, describeModelFile } from "../src/engine.js";
-
-const DEFAULT_MODEL =
-  "https://huggingface.co/mradermacher/DeepSeek-V4-Pro-Qwen3.5-9B-UNCENSORED-heretic-i1-GGUF" +
-  "/resolve/main/DeepSeek-V4-Pro-Qwen3.5-9B-UNCENSORED-heretic.i1-Q4_K_M.gguf";
-const MODELS_DIR = path.join(os.homedir(), ".unmuzzled", "models");
+import {
+  CATALOG, DEFAULT_MODEL, MODELS_DIR, hasPartialDownload, installedPath, machineInfo, startModelDownload,
+} from "../src/models.js";
 
 const { values: args } = parseArgs({
   options: {
@@ -33,8 +30,9 @@ if (args.help) {
     npx unmuzzled [options]
 
   Options
-    -m, --model <path|url>  GGUF file on disk, or a URL to download it from
-                            (default: DeepSeek V4 Pro · Qwen3.5 9B, Q4_K_M)
+    -m, --model <path|url>  GGUF file on disk, or a URL to download it from.
+                            Without it, the interface opens and offers to
+                            download DeepSeek V4 Pro · Qwen3.5 9B (5.63 GB)
     -p, --port <number>     Port for the web interface        (default: 4317)
         --host <address>    Address to bind                   (default: 127.0.0.1)
         --ctx <tokens>      Maximum context size              (default: 8192)
@@ -80,7 +78,7 @@ async function resolveModel(source) {
       .catch(() => null);
     const gb = (n) => `${(n / 1e9).toFixed(2)} GB`;
 
-    console.log(`  ${bold("First run")} — downloading the model. This only happens once.`);
+    console.log(`  ${bold("Downloading")} the model. This only happens once.`);
     console.log(dim(`  ${path.posix.basename(new URL(source).pathname)}${size ? ` · ${gb(size)}` : ""}`));
     console.log(dim(`  Saving to ${MODELS_DIR}`));
     console.log(dim(`  You can stop with Ctrl+C and run the command again to resume.\n`));
@@ -95,20 +93,122 @@ async function resolveModel(source) {
   return resolveModelFile(source, { directory: MODELS_DIR, cli: true });
 }
 
-const state = { status: "loading", engine: null, error: null, pendingInfo: null };
 const port = Number(args.port);
 const url = `http://${args.host === "0.0.0.0" ? "localhost" : args.host}:${port}`;
+
+// status: setup → downloading → loading → ready (or error)
+const state = {
+  status: "loading",
+  engine: null,
+  error: null,
+  pendingInfo: null,
+  download: null,
+  catalog: CATALOG,
+  setup: null,
+};
+
+async function loadModel(modelPath) {
+  state.status = "loading";
+  state.error = null;
+  state.pendingInfo = describeModelFile(modelPath);
+  console.log(`  ${dim("○")} Loading     ${path.basename(modelPath)}`);
+  const startedAt = Date.now();
+  try {
+    state.engine = await createEngine({ modelPath, contextSize: Number(args.ctx), gpu: args.gpu });
+  } catch (err) {
+    state.status = "error";
+    state.error = err.message;
+    console.error(`  ${red("●")} ${err.message}`);
+    return;
+  }
+  const { backend, contextSize } = state.engine.info;
+  state.status = "ready";
+  console.log(`  ${green("●")} Ready       ${dim(`${backend} · ${contextSize} ctx · ${((Date.now() - startedAt) / 1000).toFixed(1)}s`)}`);
+}
+
+function enterSetup(error = null) {
+  state.status = "setup";
+  state.error = error;
+  state.setup = {
+    machine: machineInfo(),
+    resumable: hasPartialDownload(DEFAULT_MODEL),
+  };
+  // Warm up the downloader so clicking Download starts immediately.
+  import("node-llama-cpp").catch(() => {});
+}
+
+let activeDownload = null;
+let pauseRequested = false;
+let lastLoggedPct = -1;
+
+// Called from the interface when the user clicks Download.
+const actions = {
+  async download() {
+    if (state.status !== "setup") return;
+    const entry = DEFAULT_MODEL;
+    state.status = "downloading";
+    state.error = null;
+    state.download = { downloaded: 0, total: entry.sizeBytes, speed: 0, eta: null, pausing: false };
+    pauseRequested = false;
+    lastLoggedPct = -1;
+    console.log(`  ${dim("↓")} Download    ${entry.file} ${dim(`· ${(entry.sizeBytes / 1e9).toFixed(2)} GB → ${MODELS_DIR}`)}`);
+
+    try {
+      activeDownload = await startModelDownload(entry, (p) => {
+        state.download = { ...p, pausing: pauseRequested };
+        const pct = Math.floor((p.downloaded / p.total) * 100);
+        if (pct >= lastLoggedPct + 10) {
+          lastLoggedPct = pct - (pct % 10);
+          console.log(dim(`              ${String(pct).padStart(3)}%  ${(p.downloaded / 1e9).toFixed(2)} / ${(p.total / 1e9).toFixed(2)} GB`));
+        }
+      });
+      // Pause may have been clicked while the download was still connecting.
+      if (pauseRequested) await activeDownload.cancel();
+      await activeDownload.done;
+      activeDownload = null;
+      state.download = null;
+
+      // A cancelled download also resolves, so check the file is really complete.
+      const modelPath = installedPath(entry);
+      if (!modelPath) {
+        enterSetup(pauseRequested ? null : "The download stopped before it finished. Click Resume to continue.");
+        console.log(`  ${dim("‖")} Paused      ${dim("click Resume in the interface to continue")}`);
+        return;
+      }
+      console.log(`  ${green("●")} Downloaded  ${dim(modelPath)}`);
+      await loadModel(modelPath);
+    } catch (err) {
+      activeDownload = null;
+      state.download = null;
+      enterSetup(`Download failed: ${err.message}. Click Resume to try again.`);
+      console.error(`  ${red("●")} Download failed: ${err.message}`);
+    }
+  },
+
+  async pause() {
+    if (state.status !== "downloading" || pauseRequested) return;
+    pauseRequested = true;
+    if (state.download) state.download.pausing = true;
+    await activeDownload?.cancel();
+  },
+};
 
 console.log(`\n  ${bold("unmuzzled")} ${dim("· private, offline chat")}\n`);
 
 try {
+  // An explicit --model is loaded (or downloaded) straight away; otherwise the
+  // interface opens first and lets the user choose to download the default model.
   let modelPath = null;
-  if (!args.mock) {
-    modelPath = await resolveModel(args.model ?? DEFAULT_MODEL);
-    state.pendingInfo = describeModelFile(modelPath);
+  if (args.mock) {
+    // no model
+  } else if (args.model) {
+    modelPath = await resolveModel(args.model);
+  } else {
+    modelPath = installedPath(DEFAULT_MODEL);
+    if (!modelPath) enterSetup();
   }
 
-  await startServer({ port, host: args.host, state });
+  await startServer({ port, host: args.host, state, actions });
   console.log(`  ${green("●")} Interface   ${bold(url)}`);
   if (!["127.0.0.1", "localhost", "::1"].includes(args.host)) {
     console.log(`  ${red("!")} Exposed     ${dim(`anyone on your network can use this model — there is no login`)}`);
@@ -117,14 +217,12 @@ try {
 
   if (args.mock) {
     state.engine = createMockEngine();
+    state.status = "ready";
+  } else if (modelPath) {
+    await loadModel(modelPath);
   } else {
-    console.log(`  ${dim("○")} Loading     ${path.basename(modelPath)}`);
-    const startedAt = Date.now();
-    state.engine = await createEngine({ modelPath, contextSize: Number(args.ctx), gpu: args.gpu });
-    const { backend, contextSize } = state.engine.info;
-    console.log(`  ${green("●")} Ready       ${dim(`${backend} · ${contextSize} ctx · ${((Date.now() - startedAt) / 1000).toFixed(1)}s`)}`);
+    console.log(`  ${dim("○")} Setup       ${dim("no model yet — choose one in the browser to download it")}`);
   }
-  state.status = "ready";
   console.log(dim(`\n  Press Ctrl+C to stop.\n`));
 } catch (err) {
   if (err.code === "EADDRINUSE") {

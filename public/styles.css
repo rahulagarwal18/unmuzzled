@@ -402,6 +402,52 @@ kbd {
 
 @keyframes rise { from { opacity: 0; transform: translateY(6px); } }
 
+/* ---------- First-run setup ---------- */
+
+.setup {
+  padding-top: max(40px, 10vh);
+  animation: rise .4s var(--ease) both;
+}
+.setup .empty-lede { margin-bottom: 26px; }
+.model-card {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+  box-shadow: var(--shadow-1);
+  padding: 20px 22px;
+}
+.model-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.model-card-name { margin: 0; font-size: 16px; font-weight: 600; letter-spacing: -0.01em; }
+.model-card-variant { margin: 3px 0 0; font: 12.5px/1.4 var(--font-mono); color: var(--muted); }
+.badge {
+  flex: none;
+  font-size: 11.5px; font-weight: 500;
+  padding: 3px 9px; border-radius: 20px;
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+.model-card-desc { margin: 12px 0 16px; color: var(--ink-2); font-size: 14px; line-height: 1.6; }
+.model-card-specs { padding: 14px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.model-card-specs dd.is-bad { color: var(--danger); }
+.model-card-actions { display: flex; gap: 8px; margin-top: 18px; flex-wrap: wrap; }
+.model-card-actions .btn { height: 38px; padding: 0 16px; text-decoration: none; color: var(--ink); }
+.model-card-actions .btn-primary { color: var(--bg); }
+.btn:disabled { opacity: .5; cursor: default; }
+
+.setup-progress { margin-top: 18px; }
+.setup-track { height: 6px; border-radius: 6px; background: var(--line); overflow: hidden; }
+.setup-fill { height: 100%; width: 0; border-radius: 6px; background: var(--accent); transition: width .8s var(--ease); }
+.setup-meta {
+  display: flex; justify-content: space-between; gap: 12px; margin-top: 9px;
+  font: 12px var(--font-mono); color: var(--muted); font-variant-numeric: tabular-nums;
+}
+.setup-error { margin: 14px 0 0; color: var(--danger); font-size: 13.5px; }
+.setup-foot { margin: 18px 2px 0; color: var(--muted); font-size: 12.5px; line-height: 1.8; }
+.setup-foot code {
+  font: 11.5px var(--font-mono);
+  background: var(--code-bg); border: 1px solid var(--line); border-radius: 5px; padding: 1px 5px;
+}
+
 /* ---------- Messages ---------- */
 
 .msg { padding: 14px 0; }
