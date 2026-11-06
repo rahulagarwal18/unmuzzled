@@ -72,8 +72,26 @@ async function resolveModel(source) {
     const local = path.join(MODELS_DIR, decodeURIComponent(path.posix.basename(new URL(source).pathname)));
     if (fs.existsSync(local)) return local;
   }
-  const { resolveModelFile } = await import("node-llama-cpp");
   fs.mkdirSync(MODELS_DIR, { recursive: true });
+
+  if (/^https?:/i.test(source)) {
+    const size = await fetch(source, { method: "HEAD", redirect: "follow" })
+      .then((r) => Number(r.headers.get("content-length")) || null)
+      .catch(() => null);
+    const gb = (n) => `${(n / 1e9).toFixed(2)} GB`;
+
+    console.log(`  ${bold("First run")} — downloading the model. This only happens once.`);
+    console.log(dim(`  ${path.posix.basename(new URL(source).pathname)}${size ? ` · ${gb(size)}` : ""}`));
+    console.log(dim(`  Saving to ${MODELS_DIR}`));
+    console.log(dim(`  You can stop with Ctrl+C and run the command again to resume.\n`));
+
+    const free = fs.statfsSync?.(MODELS_DIR);
+    if (size && free && free.bavail * free.bsize < size * 1.05) {
+      throw new Error(`Not enough disk space: the model needs ${gb(size)}, but only ${gb(free.bavail * free.bsize)} is free on that drive.`);
+    }
+  }
+
+  const { resolveModelFile } = await import("node-llama-cpp");
   return resolveModelFile(source, { directory: MODELS_DIR, cli: true });
 }
 
