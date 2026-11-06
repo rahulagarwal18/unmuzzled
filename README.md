@@ -102,6 +102,10 @@ Downloaded models are stored in `~/.unmuzzled/models`. Once the default model is
 | `/` | Focus the message box |
 | Double-click the title | Rename the chat |
 
+## Android (beta)
+
+Unmuzzled also runs **entirely on your phone**, using the same model and design, with no laptop or server involved. It needs a 64-bit Android phone with about 12 GB of RAM for the default 9B model. See [`mobile/`](mobile/README.md) for features, install steps and building from source.
+
 ## Privacy
 
 - After the model has been downloaded, Unmuzzled makes **no network requests**. Your prompts and responses never leave your computer.

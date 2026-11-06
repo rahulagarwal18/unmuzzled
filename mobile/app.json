@@ -1,0 +1,48 @@
+{
+  "expo": {
+    "name": "Unmuzzled",
+    "slug": "unmuzzled",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "backgroundColor": "#161615",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "io.github.rahulagarwal18.unmuzzled"
+    },
+    "android": {
+      "package": "io.github.rahulagarwal18.unmuzzled",
+      "versionCode": 1,
+      "adaptiveIcon": {
+        "backgroundColor": "#1f2a26",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false,
+      "softwareKeyboardLayoutMode": "resize"
+    },
+    "plugins": [
+      ["llama.rn", { "enableOpenCLAndHexagon": true }],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "buildArchs": ["arm64-v8a"]
+          }
+        }
+      ],
+      [
+        "expo-font",
+        {
+          "fonts": [
+            "./node_modules/@expo-google-fonts/ibm-plex-sans/400Regular/IBMPlexSans_400Regular.ttf",
+            "./node_modules/@expo-google-fonts/ibm-plex-sans/500Medium/IBMPlexSans_500Medium.ttf",
+            "./node_modules/@expo-google-fonts/ibm-plex-sans/600SemiBold/IBMPlexSans_600SemiBold.ttf",
+            "./node_modules/@expo-google-fonts/ibm-plex-mono/400Regular/IBMPlexMono_400Regular.ttf"
+          ]
+        }
+      ]
+    ]
+  }
+}
