@@ -2,7 +2,7 @@
 
 The same private chat, running the model **on the phone itself**. No laptop, no server and no internet after the one-time model download.
 
-> **Status: beta.** Built and type-checked; first real-device testing is in progress on a Galaxy S25 Ultra.
+> **Status: beta**, being tested on a Galaxy S25 Ultra. Please [report issues](https://github.com/rahulagarwal18/unmuzzled/issues) with your phone model.
 
 ## What it does
 
@@ -19,7 +19,9 @@ The same private chat, running the model **on the phone itself**. No laptop, no 
 
 ## Install
 
-An APK will be published on the [Releases](https://github.com/rahulagarwal18/unmuzzled/releases) page once on-device testing is complete. Until then, build it yourself (below). To install, open the APK on the phone and allow installs from that source when Android asks.
+**[Download Unmuzzled-android-0.1.0.apk](https://github.com/rahulagarwal18/unmuzzled/releases/download/android-v0.1.0/Unmuzzled-android-0.1.0.apk)** (beta, 113 MB) from the [release page](https://github.com/rahulagarwal18/unmuzzled/releases/tag/android-v0.1.0). It also lists the SHA-256 checksum and the signing certificate.
+
+Open the APK on the phone and allow installs from that source when Android asks. On Samsung phones, turn off **Auto Blocker** (Settings → Security and privacy) if the install is blocked.
 
 The app is distributed as an APK rather than through Google Play. The default model has had its refusal training removed, which doesn't fit Play's AI-content policy.
 
