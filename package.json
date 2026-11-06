@@ -1,0 +1,49 @@
+{
+  "name": "unmuzzled",
+  "version": "0.1.0",
+  "description": "Private, offline AI chat for local GGUF models. One command to download, run and talk.",
+  "author": "Rahul Agarwal (https://github.com/rahulagarwal18)",
+  "license": "MIT",
+  "homepage": "https://github.com/rahulagarwal18/unmuzzled#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rahulagarwal18/unmuzzled.git"
+  },
+  "bugs": {
+    "url": "https://github.com/rahulagarwal18/unmuzzled/issues"
+  },
+  "type": "module",
+  "bin": {
+    "unmuzzled": "bin/unmuzzled.js"
+  },
+  "files": [
+    "bin",
+    "src",
+    "public"
+  ],
+  "scripts": {
+    "start": "node bin/unmuzzled.js",
+    "dev": "node --watch-path=src bin/unmuzzled.js --no-open"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "keywords": [
+    "llm",
+    "local-llm",
+    "offline",
+    "private",
+    "gguf",
+    "llama.cpp",
+    "chat",
+    "qwen",
+    "ai"
+  ],
+  "dependencies": {
+    "@fontsource/ibm-plex-mono": "^5.3.0",
+    "@fontsource/ibm-plex-sans": "^5.3.0",
+    "@highlightjs/cdn-assets": "^11.11.1",
+    "marked": "^18.1.3",
+    "node-llama-cpp": "^3.22.3"
+  }
+}

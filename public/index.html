@@ -1,0 +1,228 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Unmuzzled</title>
+  <meta name="color-scheme" content="light dark">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/vendor/plex-sans/400.css">
+  <link rel="stylesheet" href="/vendor/plex-sans/500.css">
+  <link rel="stylesheet" href="/vendor/plex-sans/600.css">
+  <link rel="stylesheet" href="/vendor/plex-mono/400.css">
+  <link rel="stylesheet" href="/vendor/plex-mono/500.css">
+  <link rel="stylesheet" href="/styles.css">
+  <script>
+    // Apply the saved theme before first paint to avoid a flash.
+    try {
+      const t = JSON.parse(localStorage.getItem("unmuzzled.settings") || "{}").theme;
+      if (t === "light" || t === "dark") document.documentElement.dataset.theme = t;
+    } catch {}
+  </script>
+</head>
+<body>
+  <div class="app" id="app">
+    <aside class="sidebar" id="sidebar" aria-label="Conversations">
+      <div class="sidebar-head">
+        <a class="wordmark" href="/" aria-label="Unmuzzled home">
+          <svg class="mark" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M4 20V9a5 5 0 0 1 5-5h11v11a5 5 0 0 1-5 5H4Z" fill="none" stroke="currentColor" stroke-width="1.75"/>
+            <path d="M9 15V11a2 2 0 0 1 2-2h4" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/>
+          </svg>
+          <span>Unmuzzled</span>
+        </a>
+        <button class="icon-btn" data-action="toggle-sidebar" title="Hide sidebar (Ctrl+\)" aria-label="Hide sidebar">
+          <svg class="i"><use href="#i-panel"/></svg>
+        </button>
+      </div>
+
+      <button class="new-chat" data-action="new-chat">
+        <svg class="i"><use href="#i-compose"/></svg>
+        <span>New chat</span>
+        <kbd>Ctrl Shift O</kbd>
+      </button>
+
+      <label class="search">
+        <svg class="i"><use href="#i-search"/></svg>
+        <input id="search" type="search" placeholder="Search chats" autocomplete="off" spellcheck="false">
+      </label>
+
+      <nav class="chat-list" id="chat-list"></nav>
+
+      <div class="sidebar-foot">
+        <button class="model-chip" id="model-chip" data-action="open-settings" title="Model and settings">
+          <span class="status-dot" id="status-dot" data-state="loading"></span>
+          <span class="model-chip-text">
+            <span class="model-chip-name" id="model-chip-name">Connecting…</span>
+            <span class="model-chip-meta" id="model-chip-meta"></span>
+          </span>
+          <svg class="i i-sm"><use href="#i-sliders"/></svg>
+        </button>
+      </div>
+    </aside>
+
+    <div class="scrim" data-action="toggle-sidebar"></div>
+
+    <main class="main">
+      <header class="topbar">
+        <button class="icon-btn show-sidebar" data-action="toggle-sidebar" title="Show sidebar (Ctrl+\)" aria-label="Show sidebar">
+          <svg class="i"><use href="#i-panel"/></svg>
+        </button>
+        <button class="icon-btn show-sidebar" data-action="new-chat" title="New chat" aria-label="New chat">
+          <svg class="i"><use href="#i-compose"/></svg>
+        </button>
+        <h1 class="chat-title" id="chat-title"></h1>
+        <div class="topbar-actions">
+          <button class="icon-btn" data-action="open-settings" title="Settings" aria-label="Settings">
+            <svg class="i"><use href="#i-sliders"/></svg>
+          </button>
+        </div>
+      </header>
+
+      <section class="thread" id="thread" aria-live="polite">
+        <div class="thread-inner" id="messages"></div>
+      </section>
+
+      <button class="jump" id="jump" data-action="jump" aria-label="Scroll to latest" hidden>
+        <svg class="i i-sm"><use href="#i-arrow-down"/></svg>
+      </button>
+
+      <footer class="composer-wrap">
+        <form class="composer" id="composer">
+          <textarea id="input" rows="1" placeholder="Message the model" autocomplete="off" spellcheck="true"></textarea>
+          <div class="composer-bar">
+            <span class="composer-hint" id="composer-hint"><kbd>Enter</kbd> to send · <kbd>Shift Enter</kbd> for a new line</span>
+            <button type="submit" class="send" id="send" aria-label="Send" disabled>
+              <svg class="i"><use href="#i-arrow-up"/></svg>
+            </button>
+          </div>
+        </form>
+        <p class="footnote">Runs entirely on this computer. Responses aren't filtered, so check anything important.</p>
+      </footer>
+    </main>
+
+    <aside class="drawer" id="drawer" aria-label="Settings" aria-hidden="true">
+      <div class="drawer-head">
+        <h2>Settings</h2>
+        <button class="icon-btn" data-action="close-settings" aria-label="Close settings">
+          <svg class="i"><use href="#i-x"/></svg>
+        </button>
+      </div>
+
+      <div class="drawer-body">
+        <section class="group">
+          <h3>Model</h3>
+          <dl class="spec" id="model-spec"></dl>
+        </section>
+
+        <section class="group">
+          <h3>System prompt</h3>
+          <textarea id="set-system" class="field" rows="5" placeholder="Optional. Sets the model's role, tone or rules for every chat."></textarea>
+        </section>
+
+        <section class="group">
+          <h3>Sampling</h3>
+          <div class="range-row">
+            <label for="set-temperature">Temperature</label>
+            <output id="out-temperature"></output>
+            <input id="set-temperature" type="range" min="0" max="2" step="0.05">
+            <p class="help">Lower is focused and repeatable. Higher is more varied.</p>
+          </div>
+          <div class="range-row">
+            <label for="set-topp">Top P</label>
+            <output id="out-topp"></output>
+            <input id="set-topp" type="range" min="0.05" max="1" step="0.05">
+          </div>
+          <div class="num-row">
+            <label for="set-maxtokens">Max response length</label>
+            <div class="num-field">
+              <input id="set-maxtokens" class="field" type="number" min="0" step="256">
+              <span>tokens</span>
+            </div>
+            <p class="help">0 means no limit beyond the context window.</p>
+          </div>
+        </section>
+
+        <section class="group">
+          <h3>Interface</h3>
+          <div class="seg" role="radiogroup" aria-label="Theme" id="set-theme">
+            <button role="radio" data-value="system">System</button>
+            <button role="radio" data-value="light">Light</button>
+            <button role="radio" data-value="dark">Dark</button>
+          </div>
+          <label class="switch-row">
+            <span>Show reasoning</span>
+            <input id="set-thinking" type="checkbox" class="switch">
+          </label>
+          <label class="switch-row">
+            <span>Show speed under responses</span>
+            <input id="set-stats" type="checkbox" class="switch">
+          </label>
+        </section>
+
+        <section class="group">
+          <h3>Data</h3>
+          <p class="help">Chats are stored in this browser only.</p>
+          <div class="btn-row">
+            <button class="btn" data-action="export">
+              <svg class="i i-sm"><use href="#i-download"/></svg> Export chats
+            </button>
+            <button class="btn btn-danger" data-action="clear-all">
+              <svg class="i i-sm"><use href="#i-trash"/></svg> Delete all
+            </button>
+          </div>
+        </section>
+      </div>
+    </aside>
+  </div>
+
+  <template id="tpl-empty">
+    <div class="empty">
+      <p class="empty-eyebrow" id="empty-model"></p>
+      <h2 class="empty-title">Private by default.</h2>
+      <p class="empty-lede">Everything runs on this machine. Nothing you type is sent anywhere.</p>
+      <div class="starters">
+        <button class="starter" data-prompt="Explain how quantisation (Q4_K_M vs Q8_0) affects a language model's quality and memory use. Keep it practical.">
+          <span class="starter-title">Explain a concept</span>
+          <span class="starter-sub">How quantisation trades quality for memory</span>
+        </button>
+        <button class="starter" data-prompt="Review this function for bugs and edge cases, then suggest a cleaner version:&#10;&#10;">
+          <span class="starter-title">Review code</span>
+          <span class="starter-sub">Paste a function and get feedback</span>
+        </button>
+        <button class="starter" data-prompt="Draft a short, direct email declining a meeting and proposing an async update instead.">
+          <span class="starter-title">Draft something</span>
+          <span class="starter-sub">A short email declining a meeting</span>
+        </button>
+        <button class="starter" data-prompt="Give me a 4-week plan to learn the fundamentals of linear algebra for machine learning, with one exercise per day.">
+          <span class="starter-title">Make a plan</span>
+          <span class="starter-sub">Four weeks of linear algebra for ML</span>
+        </button>
+      </div>
+    </div>
+  </template>
+
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <defs>
+      <symbol id="i-panel" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2.5"/><path d="M9 4v16"/></symbol>
+      <symbol id="i-compose" viewBox="0 0 24 24"><path d="M12 4H6.5A2.5 2.5 0 0 0 4 6.5v11A2.5 2.5 0 0 0 6.5 20h11a2.5 2.5 0 0 0 2.5-2.5V12"/><path d="M18.4 3.6a1.9 1.9 0 0 1 2.7 2.7L13 14.4l-3.5.9.9-3.5 8-8.2Z"/></symbol>
+      <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.2-4.2"/></symbol>
+      <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></symbol>
+      <symbol id="i-copy" viewBox="0 0 24 24"><rect x="8.5" y="8.5" width="12" height="12" rx="2"/><path d="M15.5 8.5V5.5a2 2 0 0 0-2-2h-8a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h3"/></symbol>
+      <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5"/></symbol>
+      <symbol id="i-retry" viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 0 2.4-5.7L4 8.5"/><path d="M4 4v4.5h4.5"/></symbol>
+      <symbol id="i-edit" viewBox="0 0 24 24"><path d="M15.5 5.5 18.5 8.5M4 20l1-4 11.3-11.3a2.1 2.1 0 0 1 3 3L8 19l-4 1Z"/></symbol>
+      <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M9.5 7V4.5h5V7M6.5 7l.8 12a1.5 1.5 0 0 0 1.5 1.5h6.4a1.5 1.5 0 0 0 1.5-1.5l.8-12"/></symbol>
+      <symbol id="i-arrow-up" viewBox="0 0 24 24"><path d="M12 19V5M6 11l6-6 6 6"/></symbol>
+      <symbol id="i-arrow-down" viewBox="0 0 24 24"><path d="M12 5v14M6 13l6 6 6-6"/></symbol>
+      <symbol id="i-stop" viewBox="0 0 24 24"><rect x="7" y="7" width="10" height="10" rx="1.5" fill="currentColor" stroke="none"/></symbol>
+      <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+      <symbol id="i-chevron" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></symbol>
+      <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4v11M7 10.5l5 5 5-5M5 20h14"/></symbol>
+      <symbol id="i-dots" viewBox="0 0 24 24"><circle cx="6" cy="12" r="1.2" fill="currentColor"/><circle cx="12" cy="12" r="1.2" fill="currentColor"/><circle cx="18" cy="12" r="1.2" fill="currentColor"/></symbol>
+    </defs>
+  </svg>
+
+  <script type="module" src="/app.js"></script>
+</body>
+</html>
